@@ -1,0 +1,49 @@
+STATUS: SUDAH BISA JALAN (di environment debug kemarin), training Swin-Tiny mencapai iter: 1.
+
+DEBUG LOG RINGKAS (ERROR -> PENYEBAB -> SOLUSI)
+
+1) ERROR: panoptic_train2017.json tidak ditemukan saat Step 1
+   PENYEBAB: path dataset tidak sesuai struktur yang diharapkan repo
+   SOLUSI: pastikan file ada di:
+            datasets/datasets/panoptic_anns/panoptic_train2017.json
+            dan symlink datasets benar
+
+2) ERROR: MODEL.WEIGHTS detectron2://... (Swin) gagal, HTTP 403
+   PENYEBAB: URL detectron2 weight tidak bisa diakses dari runtime
+   SOLUSI: download weight Swin ke local:
+            /content/U2Seg/weights/swin_tiny_patch4_window7_224.pth
+            lalu set MODEL.WEIGHTS ke path lokal absolut
+
+3) ERROR: pycocotools / loader COCO gagal (mis. KeyError: 'id')
+   PENYEBAB: cocotrain_800.json bukan COCO instance format valid
+   SOLUSI: konversi dari cocotrain_800_ins_panoptic.json ke COCO instance valid
+            (annotations list wajib punya: id, image_id, bbox, category_id, segmentation, area, iscrowd)
+
+4) ERROR: crash loader karena mismatch image vs panoptic_stuff
+   PENYEBAB: file train2017 dan panoptic_stuff_cocotrain_800 tidak overlap penuh
+   SOLUSI: filter cocotrain_800.json ke intersection aktual:
+            hanya image yang ada di train2017 DAN ada semseg PNG
+
+5) ERROR: script train nyasar ke mode eval_only
+   PENYEBAB: perilaku parser train_net.py di repo ini
+   SOLUSI: pakai wrapper train_net_swin.py dan force:
+            args.eval_only = False
+
+6) ERROR: konflik metadata val (COCO 80 class vs cluster 800)
+   PENYEBAB: dataset test/eval bawaan tidak sinkron dengan eksperimen 800 cluster
+   SOLUSI SEMENTARA (agar training stabil): disable eval saat training:
+            TEST.PRECISE_BN.ENABLED False
+            DATASETS.TEST '()'
+   CATATAN: eval penuh nanti perlu penyelarasan metadata + dataset val 800-class
+
+7) ERROR: pip install -e . kadang gagal (editable build error)
+   PENYEBAB: state dependency runtime Colab
+   SOLUSI: cek dulu import detectron2
+            - jika sudah ada: skip pip install -e .
+            - jika belum: jalankan pip install -e .
+
+BUKTI RUN SUKSES:
+- log: /content/U2Seg/test_800_cocotrain_u2seg_swin_tiny/log.txt
+- ada baris:
+  "Starting training from iteration 0"
+  "iter: 1 ..."
